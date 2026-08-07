@@ -1,13 +1,13 @@
 # Backend
 
-FastAPI service for Document Copilot. Python 3.12+, managed with [uv](https://docs.astral.sh/uv/).
+FastAPI service for Document Copilot (Python 3.12+, managed with `uv`).
 
 ## Setup
 
 ```bash
-cd backend
-cp .env.example .env   # fill in Supabase, Postgres, and OpenAI values
-uv sync
+cp .env.example .env   # fill in Supabase, Postgres, OpenAI values
+uv sync                # install deps
+uv sync --extra ingest # + ingestion deps (docling)
 ```
 
 ## Run
@@ -16,23 +16,21 @@ uv sync
 uv run uvicorn app.main:app --reload
 ```
 
-- API: [http://127.0.0.1:8000](http://127.0.0.1:8000)
-- Health: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
-- Docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- Health: `http://127.0.0.1:8000/health`
+- Docs: `http://127.0.0.1:8000/docs`
 
-Alternative: `uv run python app/main.py`
-
-## Day-to-day
+## Manage
 
 | Task | Command |
 | --- | --- |
-| Install / update deps | `uv sync` |
-| Install ingestion deps | `uv sync --extra ingest` |
-| Add a dependency | `uv add <package>` |
+| Start dev server | `uv run uvicorn app.main:app --reload` |
+| Add dependency | `uv add <package>` |
+| Migrations (apply) | `uv run alembic upgrade head` |
+| Migrations (new) | `uv run alembic revision --autogenerate -m "<desc>"` |
 | Lint | `uv run ruff check .` |
-| Tests | `uv run pytest` |
-| DB migrations | `uv run alembic upgrade head` |
+| Tests (fast, no network) | `uv run pytest -m "not integration"` |
+| Ingest corpus | `uv run python -m ingest.load_source_documents` then `uv run python -m ingest.chunk_and_embed --all` |
 
-Env vars are read from `.env` via `app.config.settings` — do not call `os.getenv` in app code.
+Env is loaded from `.env` by `app.config.settings` (fail-fast). Never read env vars directly in app code.
 
-More detail (Alembic init, Jupyter kernel, ingestion): [docs/guides/backend-setup.md](../docs/guides/backend-setup.md).
+Full guide: [docs/guides/backend-setup.md](../docs/guides/backend-setup.md).

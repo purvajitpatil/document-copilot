@@ -41,3 +41,8 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Agent tooling (vendored skills, local only)
+.agents/
+.claude/
+skills-lock.json

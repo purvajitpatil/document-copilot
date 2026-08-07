@@ -36,6 +36,7 @@ Goal: a running FastAPI service with a migrated Supabase schema.
 
 - [x] Init backend deps and project layout ([backend-setup](guides/backend-setup.md))
 - [x] `app/config.py` — settings module, fail fast on missing env vars
+- [x] `backend/.env` populated with real values; `backend/.env.example` restored to placeholders (secrets out of tracked files); `openai_chat_model` default aligned to `gpt-4.1`
 - [x] `app/main.py` — FastAPI app, CORS, health check (`GET /health`)
 - [x] SQLAlchemy models in `app/database/models/`:
   - [x] `users`

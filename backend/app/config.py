@@ -1,9 +1,9 @@
-from pathlib import Path
+import pathlib
 
 from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-_BACKEND_DIR = Path(__file__).resolve().parent.parent
+_BACKEND_DIR = pathlib.Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     openai_api_key: str
     openai_embedding_model: str = "text-embedding-3-small"
     openai_embedding_dimensions: int = 1536
-    openai_chat_model: str = "gpt-5.5"
+    openai_chat_model: str = "gpt-4.1"
     openai_grounding_model: str = "gpt-4.1-mini"
     openai_agent_request_limit: int = 20
     openai_agent_temperature: float = 0.0

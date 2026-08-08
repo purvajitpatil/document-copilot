@@ -1,4 +1,4 @@
-"""Run one assistant smoke query. Edit QUERY_KEY, then: uv run python scripts/smoke_assistant.py"""
+"""Run one assistant smoke query. Edit the QUERY below, then: uv run python scripts/smoke_assistant.py"""
 
 from __future__ import annotations
 
@@ -23,14 +23,10 @@ from app.retrieval.retriever import DocumentRetriever
 
 nest_asyncio.apply()
 
-QUERIES = {
-    "apple-mix": "Across Apple's 2021–2025 10-Ks, how did the revenue mix between iPhone, Services, Mac, iPad, and Wearables change?",
-    "nvda-datacenter": "How did NVIDIA describe demand drivers for its Data Center business from fiscal 2021 through fiscal 2025?",
-    "q10-refusal": "Do the filings prove that generative AI improved margins for any of these companies?",
-    "underspecified": "What is the best stock to buy right now?",
-}
-
-QUERY_KEY = "apple-mix"
+QUERY = (
+    "Across Apple's 2021-2025 10-Ks, how did the revenue mix between iPhone, "
+    "Services, Mac, iPad, and Wearables change?"
+)
 
 
 def _print_progress(message: str) -> None:
@@ -43,10 +39,9 @@ def setup_progress_logging() -> None:
     add_progress_listener(_print_progress)
 
 
-def main() -> None:
+def main(query: str) -> None:
     setup_progress_logging()
 
-    query = QUERIES[QUERY_KEY]
     registry = TurnRegistry()
     deps = DocumentAgentDeps(
         retriever=DocumentRetriever(),
@@ -56,7 +51,7 @@ def main() -> None:
     )
 
     print(f"Model: {settings.openai_chat_model}", flush=True)
-    print(f"Query ({QUERY_KEY}): {query}\n", flush=True)
+    print(f"Query: {query}\n", flush=True)
 
     answer = prune_unreferenced_citations(run_document_agent(query, deps))
     validation = asyncio.run(GroundingValidator().validate(answer, registry))
@@ -83,7 +78,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     try:
-        main()
+        main(QUERY)
     except KeyboardInterrupt:
         print("\nInterrupted.", file=sys.stderr, flush=True)
         raise SystemExit(130)

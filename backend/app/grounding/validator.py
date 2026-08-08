@@ -200,6 +200,14 @@ class GroundingValidator:
                     ok=False,
                     error=f"Citation references chunk {citation.chunk_id} that was not retrieved.",
                 )
+            if citation.excerpt not in passage.text:
+                return ValidationResult(
+                    ok=False,
+                    error=(
+                        f"Citation [{citation.citation_index}] excerpt is not a verbatim "
+                        "substring of the retrieved source chunk."
+                    ),
+                )
             cases.append(
                 CitationGroundingCase(
                     citation_index=citation.citation_index,

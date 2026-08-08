@@ -1,9 +1,11 @@
-"""Chunk SEC HTML filings, embed chunks, and store them in document_chunks."""
+"""Chunk SEC Markdown filings, embed chunks, and store them in document_chunks."""
 
 from __future__ import annotations
 
 import argparse
+import json
 from dataclasses import dataclass
+from pathlib import Path
 
 from sqlalchemy import create_engine, delete, func, select
 from sqlalchemy.orm import Session
@@ -14,8 +16,8 @@ from ingest.chunking import (
     CHUNK_MAX_TOKENS,
     ChunkRecord,
     chunk_document,
-    html_path_for_accession,
-    iter_all_html_paths,
+    markdown_path_for_accession,
+    iter_all_markdown_paths,
 )
 from ingest.embeddings import EMBED_BATCH_SIZE, embed_texts
 
@@ -64,31 +66,29 @@ def _delete_chunks(session: Session, document_id) -> None:
     )
 
 
-def _document_tables_from_records(
+def _document_tables_from_markdown(
     document_id,
-    records: list[ChunkRecord],
+    markdown_path: Path,
 ) -> list[DocumentTable]:
-    tables_by_index: dict[int, DocumentTable] = {}
-    for record in records:
-        metadata = record.chunk_metadata
-        if metadata.get("chunk_kind") != "table_row":
-            continue
-        table_data = metadata.get("table")
-        table_index = metadata.get("table_index")
-        if not isinstance(table_data, dict) or not isinstance(table_index, int):
-            continue
-        if table_index in tables_by_index:
-            continue
-        tables_by_index[table_index] = DocumentTable(
+    tables_json_path = markdown_path.with_suffix(".tables.json")
+    if not tables_json_path.exists():
+        return []
+        
+    tables_data = json.loads(tables_json_path.read_text(encoding="utf-8"))
+    tables: list[DocumentTable] = []
+    
+    for table_data in tables_data:
+        table_index = table_data.get("table_index")
+        tables.append(DocumentTable(
             document_id=document_id,
             table_index=table_index,
             title=table_data.get("title"),
             units=table_data.get("units"),
-            markdown=table_data["markdown"],
+            markdown=table_data.get("markdown"),
             table_data=table_data,
-            source_html_hash=table_data["source_html_hash"],
-        )
-    return list(tables_by_index.values())
+            source_html_hash=table_data.get("source_html_hash"),
+        ))
+    return tables
 
 
 def ingest_document(
@@ -106,10 +106,10 @@ def ingest_document(
         print(f"Skipping existing chunks for {document.accession_number}")
         return 0
 
-    html_path = html_path_for_accession(document.accession_number)
-    print(f"Chunking {document.accession_number} from {html_path.name}...")
+    md_path = markdown_path_for_accession(document.accession_number)
+    print(f"Chunking {document.accession_number} from {md_path.name}...")
     records = chunk_document(
-        html_path,
+        md_path,
         _filing_metadata(document),
         max_chunks=max_chunks,
     )
@@ -133,18 +133,15 @@ def ingest_document(
     texts = [record.text for record in records]
     print(f"  Embedding {len(texts)} chunk(s) (batch_size={EMBED_BATCH_SIZE})...")
     vectors = embed_texts(texts)
-    document_tables = _document_tables_from_records(document.id, records)
+    
+    document_tables = _document_tables_from_markdown(document.id, md_path)
     for table in document_tables:
         session.add(table)
     if document_tables:
         session.flush()
-    table_ids_by_index = {table.table_index: str(table.id) for table in document_tables}
 
     for record, embedding in zip(records, vectors, strict=True):
         metadata = dict(record.chunk_metadata)
-        table_index = metadata.get("table_index")
-        if isinstance(table_index, int) and table_index in table_ids_by_index:
-            metadata["table_id"] = table_ids_by_index[table_index]
         session.add(
             DocumentChunk(
                 document_id=document.id,
@@ -225,7 +222,7 @@ def ingest_all(
     skip_existing: bool = True,
     force: bool = False,
 ) -> IngestCounts:
-    accessions = [accession for accession, _ in iter_all_html_paths()]
+    accessions = [accession for accession, _ in iter_all_markdown_paths()]
     return ingest_accessions(
         accessions,
         max_chunks=max_chunks,

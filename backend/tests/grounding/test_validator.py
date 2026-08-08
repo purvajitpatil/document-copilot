@@ -158,6 +158,29 @@ def test_unknown_chunk_id_fails() -> None:
     assert judge.calls == []
 
 
+def test_non_verbatim_excerpt_fails_before_judging() -> None:
+    passage = _passage()
+    registry = TurnRegistry()
+    registry.register(passage)
+    answer = GroundedAnswer(
+        answer="Services revenue grew [1].",
+        citations=[
+            Citation(
+                citation_index=1,
+                chunk_id=passage.chunk_id,
+                excerpt="Services revenue grew by twelve percent.",
+            )
+        ],
+    )
+    judge = FakeGroundingJudge()
+
+    result = _validate(answer, registry, judge=judge)
+
+    assert not result.ok
+    assert "verbatim substring" in (result.error or "")
+    assert judge.calls == []
+
+
 def test_unsupported_claim_fails() -> None:
     passage = _passage()
     registry = TurnRegistry()

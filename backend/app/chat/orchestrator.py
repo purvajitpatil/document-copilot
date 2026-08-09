@@ -6,6 +6,7 @@ import asyncio
 import uuid
 from collections.abc import AsyncIterator
 
+import structlog
 from supabase import AsyncClient
 
 from app.assistant.agent import run_document_agent
@@ -23,6 +24,12 @@ from app.retrieval.retriever import DocumentRetriever
 from app.schemas.chat import UIMessage
 
 MAX_VALIDATION_ATTEMPTS = 2
+
+log = structlog.get_logger(__name__)
+
+
+def _turn_context(thread_id: uuid.UUID, user_id: uuid.UUID) -> dict[str, str]:
+    return {"thread_id": str(thread_id), "user_id": str(user_id)}
 
 
 async def _yield_status_updates(
@@ -54,10 +61,19 @@ async def run_turn(
 ) -> AsyncIterator[str]:
     loop = asyncio.get_running_loop()
     query = text_from_parts(user_message.parts).strip()
+    context = _turn_context(thread_id, user.id)
     if not query:
+        log.info("turn.empty_query", **context)
         async for event in stream_error("User message is empty."):
             yield event
         return
+
+    log.info(
+        "turn.start",
+        **context,
+        thread_title=thread_title,
+        query=query,
+    )
 
     async for event in stream_status("analyzing", "Analyzing your question…"):
         yield event
@@ -88,6 +104,13 @@ async def run_turn(
         try:
             grounded = await agent_task
         except Exception as exc:
+            log.error(
+                "turn.agent_failed",
+                **context,
+                attempt=attempt,
+                error=str(exc),
+                exc_info=True,
+            )
             async for event in stream_error(f"Assistant run failed: {exc}"):
                 yield event
             return
@@ -97,6 +120,14 @@ async def run_turn(
 
         grounded = prune_unreferenced_citations(grounded)
         validation = await GroundingValidator().validate(grounded, registry)
+        log.info(
+            "turn.validation",
+            **context,
+            attempt=attempt,
+            ok=validation.ok,
+            citations=len(grounded.citations),
+            error=validation.error,
+        )
         if validation.ok or attempt == MAX_VALIDATION_ATTEMPTS:
             break
 
@@ -107,13 +138,28 @@ async def run_turn(
             yield event
 
     if grounded is None or validation is None:
+        log.warning("turn.no_answer", **context)
         async for event in stream_error("Assistant run failed before producing an answer."):
             yield event
         return
 
     if validation.ok:
+        log.info(
+            "turn.completed",
+            **context,
+            attempts=attempt,
+            citations=len(grounded.citations),
+        )
         async for event in stream_status("streaming", "Preparing answer…"):
             yield event
+    else:
+        log.warning(
+            "turn.grounding_failed",
+            **context,
+            attempts=attempt,
+            citations=len(grounded.citations),
+            error=validation.error,
+        )
 
     async for event in stream_grounded_turn_and_persist(
         client=client,

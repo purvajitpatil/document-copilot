@@ -5,6 +5,9 @@ import uvicorn
 from app.api.auth import router as auth_router
 from app.api.chat import router as chat_router
 from app.config import settings
+from app.logging import configure_logging
+
+configure_logging()
 
 app = FastAPI(title="Document Copilot")
 app.include_router(auth_router)

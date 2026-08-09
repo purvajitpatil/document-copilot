@@ -191,20 +191,25 @@ def test_unsupported_claim_fails() -> None:
             Citation(
                 citation_index=1,
                 chunk_id=passage.chunk_id,
-                excerpt="Fabricated quote not in chunk.",
+                excerpt="Services revenue grew 12% year over year.",
             )
         ],
     )
-    result = _validate(answer, registry, judge=FakeGroundingJudge(supported=False))
+    judge = FakeGroundingJudge(supported=False)
+
+    result = _validate(answer, registry, judge=judge)
+
     assert not result.ok
     assert "not supported" in (result.error or "")
+    assert len(judge.calls) == 1
 
 
 def test_table_claim_passes_when_judge_finds_support() -> None:
-    passage = _passage(
+    table_markdown = (
         "| Services (3) |  |  | 68,425 | 68,425 |\n"
         "| Total net sales | Total net sales | $ | 365,817 |"
     )
+    passage = _passage(table_markdown)
     registry = TurnRegistry()
     registry.register(passage)
     answer = GroundedAnswer(
@@ -213,7 +218,7 @@ def test_table_claim_passes_when_judge_finds_support() -> None:
             Citation(
                 citation_index=1,
                 chunk_id=passage.chunk_id,
-                excerpt="Services revenue was about $68.4 billion.",
+                excerpt="| Services (3) |  |  | 68,425 | 68,425 |",
             )
         ],
     )

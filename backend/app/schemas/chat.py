@@ -79,7 +79,10 @@ class StatusPart(BaseModel):
     data: StatusPayload
 
 
-MessagePart = Annotated[TextPart | CitationPart, Field(discriminator="type")]
+MessagePart = Annotated[
+    TextPart | CitationPart | StatusPart,
+    Field(discriminator="type"),
+]
 
 
 class UIMessage(BaseModel):

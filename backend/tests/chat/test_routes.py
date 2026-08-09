@@ -346,3 +346,34 @@ def test_stream_request_accepts_camel_case_citation_parts() -> None:
     assert citation_part.data.citation_index == 1
     assert citation_part.data.chunk_id == chunk_id
     assert citation_part.data.company_name == "Apple Inc."
+
+
+def test_stream_request_accepts_transient_status_parts() -> None:
+    thread_id = uuid.uuid4()
+
+    request = StreamRequest.model_validate(
+        {
+            "threadId": str(thread_id),
+            "messages": [
+                {
+                    "role": "assistant",
+                    "parts": [
+                        {"type": "text", "text": "Prior answer."},
+                        {
+                            "type": "data-status",
+                            "data": {
+                                "stage": "streaming",
+                                "message": "Preparing answer…",
+                            },
+                        },
+                    ],
+                },
+                {
+                    "role": "user",
+                    "parts": [{"type": "text", "text": "Follow up"}],
+                },
+            ],
+        }
+    )
+
+    assert request.messages[0].parts[1].type == "data-status"

@@ -21,8 +21,12 @@ class Settings(BaseSettings):
     openai_api_key: str
     openai_embedding_model: str = "text-embedding-3-small"
     openai_embedding_dimensions: int = 1536
-    openai_chat_model: str = "gpt-4.1"
-    openai_grounding_model: str = "gpt-4.1-mini"
+    openai_embedding_timeout_seconds: float = 10.0
+
+    llm_api_key: str
+    llm_base_url: str | None = None
+    llm_chat_model: str = "gpt-4.1"
+    llm_grounding_model: str = "gpt-4.1-mini"
     openai_agent_request_limit: int = 20
     openai_agent_temperature: float = 0.0
 

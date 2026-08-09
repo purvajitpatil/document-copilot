@@ -8,7 +8,11 @@ from app.config import settings
 
 
 def _client() -> OpenAI:
-    return OpenAI(api_key=settings.openai_api_key)
+    return OpenAI(
+        api_key=settings.openai_api_key,
+        timeout=settings.openai_embedding_timeout_seconds,
+        max_retries=0,
+    )
 
 
 def embed_query(text: str) -> list[float]:

@@ -3,6 +3,7 @@ import { ApiError } from '@/lib/http'
 export type ChatErrorKind =
   | 'network'
   | 'auth'
+  | 'quota'
   | 'grounding'
   | 'retrieval'
   | 'generic'
@@ -51,6 +52,22 @@ export function classifyChatError(error: Error): ClassifiedChatError {
   }
 
   const text = error.message || ''
+
+  if (
+    messageIncludesAny(text, [
+      'insufficient_quota',
+      'credit_balance_exhausted',
+      'no credits remaining',
+    ])
+  ) {
+    return {
+      kind: 'quota',
+      title: 'AI service credits exhausted',
+      message:
+        'The configured OpenAI account has no API credits remaining. Add credits, then try again.',
+      showLoginLink: false,
+    }
+  }
 
   if (
     messageIncludesAny(text, [

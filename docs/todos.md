@@ -170,8 +170,8 @@ Goal: 5 senior analysts can use it for a week and report ≥3 hours saved per an
 - [x] README "Running locally" section — copy-paste commands for backend + frontend + env vars
 - [x] Seed or document how to ingest/update the corpus
 - [ ] Smoke-test all 10 example questions from the client brief
-- [ ] Confirm chat history persists across sessions
-- [ ] Confirm ~40-user scale assumptions (no hardcoded single-user shortcuts)
+- [x] Confirm chat history persists across sessions (`append_grounded_turn` persists user+assistant messages + citations in a `finally` block; covered by `tests/chat/test_persistence.py`)
+- [x] Confirm ~40-user scale assumptions (no hardcoded single-user shortcuts; all routes go through `get_current_user`, threads are scoped by `user_id`)
 - [ ] Basic structured logging on backend (`structlog`) for debugging failed turns
 - [ ] Review latency: streaming starts within a few seconds for typical queries
 

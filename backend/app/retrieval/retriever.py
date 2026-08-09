@@ -67,8 +67,13 @@ class DocumentRetriever:
         with ThreadPoolExecutor(max_workers=2) as prep:
             embed_future = prep.submit(embed_query, query)
             kw_future = prep.submit(extract_fts_keywords, query, filters=filters)
-            query_vec = embed_future.result()
             fts_query = kw_future.result()
+
+            try:
+                query_vec = embed_future.result()
+            except Exception:
+                # Full-text search keeps grounded answers available when the embedding service is down.
+                query_vec = None
 
         semantic_hits, fts_hits = _dual_search(
             query_vec,
@@ -132,7 +137,7 @@ class DocumentRetriever:
 
 
 def _dual_search(
-    query_vec: list[float],
+    query_vec: list[float] | None,
     fts_query: str,
     *,
     candidate_k: int,
@@ -159,9 +164,12 @@ def _dual_search(
             )
 
     with ThreadPoolExecutor(max_workers=2) as executor:
-        semantic_future = executor.submit(semantic)
+        semantic_future = (
+            executor.submit(semantic) if query_vec is not None else None
+        )
         fts_future = executor.submit(fts)
-        return semantic_future.result(), fts_future.result()
+        semantic_hits = semantic_future.result() if semantic_future is not None else []
+        return semantic_hits, fts_future.result()
 
 
 def _passage_from_chunk(

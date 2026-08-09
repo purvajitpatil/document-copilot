@@ -109,7 +109,10 @@ class FtsKeywordExtraction(BaseModel):
 
 
 def _client() -> OpenAI:
-    return OpenAI(api_key=settings.openai_api_key)
+    return OpenAI(
+        api_key=settings.llm_api_key,
+        base_url=settings.llm_base_url,
+    )
 
 
 def _token_count(query: str) -> int:

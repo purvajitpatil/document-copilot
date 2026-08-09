@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     supabase_service_role_key: str
     database_url: str
 
+    log_level: str = "INFO"
+
     openai_api_key: str
     openai_embedding_model: str = "text-embedding-3-small"
     openai_embedding_dimensions: int = 1536

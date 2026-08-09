@@ -182,3 +182,84 @@ async def test_run_turn_retries_once_after_validation_failure() -> None:
     assert any('"stage":"retrying"' in event for event in events)
     assert any('"type":"text-delta"' in event for event in events)
     mock_persist.assert_awaited_once()
+
+
+@pytest.mark.anyio
+async def test_run_turn_logs_lifecycle_events() -> None:
+    passage = _passage()
+    grounded = GroundedAnswer(
+        answer="Azure grew [1].",
+        citations=[
+            Citation(
+                citation_index=1,
+                chunk_id=passage.chunk_id,
+                excerpt="Azure revenue increased 29%.",
+            )
+        ],
+    )
+    user_message = UIMessage(role="user", parts=[TextPart(text="Azure growth?")])
+
+    def fake_run(query: str, deps) -> GroundedAnswer:
+        deps.registry.register(passage)
+        return grounded
+
+    fake_validator = MagicMock()
+    fake_validator.validate = AsyncMock(return_value=ValidationResult(ok=True))
+
+    with (
+        patch("app.chat.orchestrator.run_document_agent", fake_run),
+        patch("app.chat.orchestrator.GroundingValidator", return_value=fake_validator),
+        patch("app.chat.streaming.append_grounded_turn", AsyncMock()),
+        patch("app.chat.orchestrator.log") as mock_log,
+    ):
+        async for _ in run_turn(
+            client=MagicMock(),
+            thread_id=uuid.uuid4(),
+            user=CurrentUser(id=uuid.uuid4(), email="a@example.com"),
+            user_message=user_message,
+            thread_title="New chat",
+            retriever=MagicMock(),
+        ):
+            pass
+
+    event_names = [call.args[0] for call in mock_log.info.call_args_list]
+    assert "turn.start" in event_names
+    assert "turn.validation" in event_names
+    assert "turn.completed" in event_names
+    mock_log.error.assert_not_called()
+    mock_log.warning.assert_not_called()
+
+    start_event = mock_log.info.call_args_list[0].kwargs
+    assert start_event["query"] == "Azure growth?"
+    assert "thread_id" in start_event
+    assert "user_id" in start_event
+
+
+@pytest.mark.anyio
+async def test_run_turn_logs_agent_failure() -> None:
+    user_message = UIMessage(role="user", parts=[TextPart(text="Question")])
+
+    def fail_run(query: str, deps) -> GroundedAnswer:
+        raise RuntimeError("LLM unavailable")
+
+    with (
+        patch("app.chat.orchestrator.run_document_agent", fail_run),
+        patch("app.chat.orchestrator.log") as mock_log,
+    ):
+        events = [
+            event
+            async for event in run_turn(
+                client=MagicMock(),
+                thread_id=uuid.uuid4(),
+                user=CurrentUser(id=uuid.uuid4(), email="a@example.com"),
+                user_message=user_message,
+                thread_title="New chat",
+                retriever=MagicMock(),
+            )
+        ]
+
+    assert any('"type":"error"' in event for event in events)
+    error_event = mock_log.error.call_args
+    assert error_event.args[0] == "turn.agent_failed"
+    assert error_event.kwargs["error"] == "LLM unavailable"
+    assert error_event.kwargs["attempt"] == 1

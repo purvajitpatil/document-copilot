@@ -14,7 +14,6 @@ from app.config import settings
 from app.database.models import DocumentChunk, DocumentTable, MessageCitation, SourceDocument
 from ingest.chunking import (
     CHUNK_MAX_TOKENS,
-    ChunkRecord,
     chunk_document,
     markdown_path_for_accession,
     iter_all_markdown_paths,

@@ -1,0 +1,64 @@
+# Local / self-hosted stack: OmniRoute (free-model AI gateway) + backend + frontend.
+#
+#   cp .env.example .env              # compose-level values (OmniRoute secrets, VITE_*)
+#   cp backend/.env.example backend/.env
+#   docker compose up -d --build
+#   open http://127.0.0.1:20128       # OmniRoute dashboard: connect free providers,
+#                                     # then Endpoints -> copy an API key into .env
+#                                     # as OMNIROUTE_API_KEY and `docker compose up -d`
+#
+# Supabase stays hosted (see docs/guides/supabase-setup.md). All published ports
+# bind to loopback; put a TLS-terminating reverse proxy in front for anything else.
+
+services:
+  omniroute:
+    image: diegosouzapw/omniroute:latest
+    restart: unless-stopped
+    stop_grace_period: 40s
+    environment:
+      PORT: "20128"
+      DATA_DIR: /app/data
+      # Never ship the dashboard with its default password.
+      INITIAL_PASSWORD: ${OMNIROUTE_INITIAL_PASSWORD:?set OMNIROUTE_INITIAL_PASSWORD in .env}
+      # Require a key on every /v1 call; the backend sends OMNIROUTE_API_KEY.
+      REQUIRE_API_KEY: "true"
+      JWT_SECRET: ${OMNIROUTE_JWT_SECRET:-}
+      API_KEY_SECRET: ${OMNIROUTE_API_KEY_SECRET:-}
+      STORAGE_ENCRYPTION_KEY: ${OMNIROUTE_STORAGE_ENCRYPTION_KEY:-}
+    ports:
+      - "127.0.0.1:20128:20128"
+    volumes:
+      - omniroute-data:/app/data
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      APP_ENV: production
+      # The backend reaches OmniRoute over the compose network.
+      LLM_BASE_URL: http://omniroute:20128/v1
+      LLM_API_KEY: ${OMNIROUTE_API_KEY:?create a key in the OmniRoute dashboard and set OMNIROUTE_API_KEY in .env}
+      ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+    depends_on:
+      - omniroute
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:?set VITE_SUPABASE_URL in .env}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:?set VITE_SUPABASE_ANON_KEY in .env}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  omniroute-data:

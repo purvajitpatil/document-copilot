@@ -1,0 +1,71 @@
+# Render Infrastructure-as-Code Blueprint
+# https://docs.render.com/blueprint-spec
+#
+# Usage: connect the GitHub repo to Render, it will auto-detect this file.
+# Fill in env var values in the Render dashboard after initial deploy.
+
+services:
+  - type: web
+    name: document-copilot-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    region: oregon
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      # --- Runtime ---
+      - key: APP_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+
+      # --- Supabase ---
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      # --- Database ---
+      - key: DATABASE_URL
+        sync: false
+
+      # --- LLM Gateway ---
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_BASE_URL
+        sync: false
+      - key: LLM_CHAT_MODEL
+        value: auto
+      - key: LLM_GROUNDING_MODEL
+        value: auto/smart
+      - key: LLM_FAST_MODEL
+        value: auto/fast
+      - key: LLM_OUTPUT_MODE
+        value: tool
+      - key: LLM_STRUCTURED_MODE
+        value: json_schema
+      - key: LLM_TIMEOUT_SECONDS
+        value: "60"
+      - key: LLM_MAX_RETRIES
+        value: "2"
+
+      # --- Embeddings ---
+      - key: EMBEDDING_API_KEY
+        sync: false
+      - key: OPENAI_EMBEDDING_MODEL
+        value: text-embedding-3-small
+      - key: OPENAI_EMBEDDING_DIMENSIONS
+        value: "1536"
+
+      # --- CORS (will be updated after Vercel deploy with actual frontend URL) ---
+      - key: ALLOWED_ORIGINS
+        value: https://document-copilot.vercel.app
+
+      # --- Rate Limiting ---
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+      - key: RATE_LIMIT_CHAT_PER_MINUTE
+        value: "20"
